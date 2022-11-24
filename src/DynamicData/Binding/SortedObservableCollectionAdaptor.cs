@@ -2,8 +2,7 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System;
-using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace DynamicData.Binding;
 
@@ -88,37 +87,61 @@ public class SortedObservableCollectionAdaptor<TObject, TKey> : ISortedObservabl
         }
     }
 
+    private static void DoSingleUpdate(IObservableCollection<TObject> list, Change<TObject, TKey> update)
+    {
+        switch (update.Reason)
+        {
+            case ChangeReason.Add:
+                list.Insert(update.CurrentIndex, update.Current);
+                break;
+
+            case ChangeReason.Remove:
+                list.RemoveAt(update.CurrentIndex);
+                break;
+
+            case ChangeReason.Moved:
+                list.Move(update.PreviousIndex, update.CurrentIndex);
+                break;
+
+            case ChangeReason.Update:
+                if (update.PreviousIndex != update.CurrentIndex)
+                {
+                    list.RemoveAt(update.PreviousIndex);
+                    list.Insert(update.CurrentIndex, update.Current);
+                }
+                else
+                {
+                    list[update.CurrentIndex] = update.Current;
+                }
+
+                break;
+        }
+    }
+
     private static void DoUpdate(ISortedChangeSet<TObject, TKey> updates, IObservableCollection<TObject> list)
     {
-        foreach (var update in updates)
+#if NET6_0_OR_GREATER
+        if (updates is List<Change<TObject, TKey>> lst)
         {
-            switch (update.Reason)
+            var span = CollectionsMarshal.AsSpan(lst);
+            for (int i = 0; i < span.Length; i++)
             {
-                case ChangeReason.Add:
-                    list.Insert(update.CurrentIndex, update.Current);
-                    break;
-
-                case ChangeReason.Remove:
-                    list.RemoveAt(update.CurrentIndex);
-                    break;
-
-                case ChangeReason.Moved:
-                    list.Move(update.PreviousIndex, update.CurrentIndex);
-                    break;
-
-                case ChangeReason.Update:
-                    if (update.PreviousIndex != update.CurrentIndex)
-                    {
-                        list.RemoveAt(update.PreviousIndex);
-                        list.Insert(update.CurrentIndex, update.Current);
-                    }
-                    else
-                    {
-                        list[update.CurrentIndex] = update.Current;
-                    }
-
-                    break;
+                var update = span[i];
+                DoSingleUpdate(list, update);
             }
         }
+        else
+        {
+            foreach (var update in updates)
+            {
+                DoSingleUpdate(list, update);
+            }
+        }
+#else
+        foreach (var update in updates)
+        {
+            DoSingleUpdate(list, update);
+        }
+#endif
     }
 }

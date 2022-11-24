@@ -6,6 +6,7 @@
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace DynamicData.Binding
 {
@@ -79,31 +80,56 @@ namespace DynamicData.Binding
             }
         }
 
+        private void DoSingleUpdate(Change<TObject, TKey> change)
+        {
+            switch (change.Reason)
+            {
+                case ChangeReason.Add:
+                    _list.Insert(change.CurrentIndex, change.Current);
+                    break;
+
+                case ChangeReason.Remove:
+                    _list.RemoveAt(change.CurrentIndex);
+                    break;
+
+                case ChangeReason.Moved:
+                    _list.RemoveAt(change.PreviousIndex);
+                    _list.Insert(change.CurrentIndex, change.Current);
+                    break;
+
+                case ChangeReason.Update:
+                    _list.RemoveAt(change.PreviousIndex);
+                    _list.Insert(change.CurrentIndex, change.Current);
+                    break;
+            }
+        }
+
         private void DoUpdate(ISortedChangeSet<TObject, TKey> changes)
         {
-            foreach (var change in changes)
+#if NET6_0_OR_GREATER
+            if (changes is List<Change<TObject, TKey>> lst)
             {
-                switch (change.Reason)
+                var span = CollectionsMarshal.AsSpan(lst);
+                for (int i = 0; i < span.Length; i++)
                 {
-                    case ChangeReason.Add:
-                        _list.Insert(change.CurrentIndex, change.Current);
-                        break;
-
-                    case ChangeReason.Remove:
-                        _list.RemoveAt(change.CurrentIndex);
-                        break;
-
-                    case ChangeReason.Moved:
-                        _list.RemoveAt(change.PreviousIndex);
-                        _list.Insert(change.CurrentIndex, change.Current);
-                        break;
-
-                    case ChangeReason.Update:
-                        _list.RemoveAt(change.PreviousIndex);
-                        _list.Insert(change.CurrentIndex, change.Current);
-                        break;
+                    var change = span[i];
+                    DoSingleUpdate(change);
                 }
             }
+            else
+            {
+                foreach (var change in changes)
+                {
+                    DoSingleUpdate(change);
+                }
+            }
+#else
+      foreach (var change in changes)
+            {
+                DoSingleUpdate(change);
+            }
+#endif
+
         }
     }
 }

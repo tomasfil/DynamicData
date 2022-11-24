@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace DynamicData.Binding;
 
@@ -36,6 +37,53 @@ public class SortExpressionComparer<T> : List<SortExpression<T>>, IComparer<T>
     /// <inheritdoc/>
     public int Compare(T? x, T? y)
     {
+#if NET6_0_OR_GREATER
+        var span = CollectionsMarshal.AsSpan(this);
+        for (int i = 0; i < span.Length; i++)
+        {
+            var item = span[i];
+            if (x is null && y is null)
+            {
+                continue;
+            }
+
+            if (x is null)
+            {
+                return -1;
+            }
+
+            if (y is null)
+            {
+                return 1;
+            }
+
+            var xValue = item.Expression(x);
+            var yValue = item.Expression(y);
+
+            if (xValue is null && yValue is null)
+            {
+                continue;
+            }
+
+            if (xValue is null)
+            {
+                return -1;
+            }
+
+            if (yValue is null)
+            {
+                return 1;
+            }
+
+            int result = xValue.CompareTo(yValue);
+            if (result == 0)
+            {
+                continue;
+            }
+
+            return (item.Direction == SortDirection.Ascending) ? result : -result;
+        }
+#else
         foreach (var item in this)
         {
             if (x is null && y is null)
@@ -79,7 +127,7 @@ public class SortExpressionComparer<T> : List<SortExpression<T>>, IComparer<T>
 
             return (item.Direction == SortDirection.Ascending) ? result : -result;
         }
-
+#endif
         return 0;
     }
 

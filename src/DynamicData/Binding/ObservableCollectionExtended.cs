@@ -8,6 +8,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reactive.Disposables;
+using System.Runtime.InteropServices;
+using Microsoft.VisualBasic;
 
 namespace DynamicData.Binding;
 
@@ -57,11 +59,30 @@ public class ObservableCollectionExtended<T> : ObservableCollection<T>, IObserva
         {
             throw new ArgumentNullException(nameof(collection));
         }
-
+#if NET6_0_OR_GREATER
+        if (collection is List<T> lst)
+        {
+            var span = CollectionsMarshal.AsSpan(lst);
+            for (int i = 0; i < span.Length; i++)
+            {
+                var item = span[i];
+                Add(item);
+            }
+        }
+        else
+        {
+            foreach (var item in collection)
+            {
+                Add(item);
+            }
+        }
+#else
         foreach (var item in collection)
         {
             Add(item);
         }
+#endif
+
     }
 
     /// <summary>
@@ -77,11 +98,29 @@ public class ObservableCollectionExtended<T> : ObservableCollection<T>, IObserva
         {
             throw new ArgumentNullException(nameof(collection));
         }
-
+#if NET6_0_OR_GREATER
+        if (collection is List<T> lst)
+        {
+            var span = CollectionsMarshal.AsSpan(lst);
+            for (int i = 0; i < span.Length; i++)
+            {
+                var item = span[i];
+                InsertItem(index, item);
+            }
+        }
+        else
+        {
+            foreach (var item in collection)
+            {
+                InsertItem(index, item);
+            }
+        }
+#else
         foreach (var item in collection)
         {
-            InsertItem(index++, item);
+            InsertItem(index, item);
         }
+#endif
     }
 
     /// <summary>
@@ -98,10 +137,29 @@ public class ObservableCollectionExtended<T> : ObservableCollection<T>, IObserva
         CheckReentrancy();
         Clear();
 
+#if NET6_0_OR_GREATER
+        if (items is List<T> lst)
+        {
+            var span = CollectionsMarshal.AsSpan(lst);
+            for (int i = 0; i < span.Length; i++)
+            {
+                var item = span[i];
+                Add(item);
+            }
+        }
+        else
+        {
+            foreach (var item in items)
+            {
+                Add(item);
+            }
+        }
+#else
         foreach (var item in items)
         {
             Add(item);
         }
+#endif
     }
 
     /// <summary>

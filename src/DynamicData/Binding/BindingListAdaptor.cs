@@ -6,8 +6,9 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-
+using System.Runtime.InteropServices;
 using DynamicData.Cache.Internal;
+using Microsoft.VisualBasic;
 
 namespace DynamicData.Binding
 {
@@ -107,7 +108,66 @@ namespace DynamicData.Binding
 
         private static void DoUpdate(IChangeSet<TObject, TKey> changes, BindingList<TObject> list)
         {
-            foreach (var update in changes)
+#if NET6_0_OR_GREATER
+            if (changes is List<Change<TObject, TKey>> lst)
+            {
+                var span = CollectionsMarshal.AsSpan(lst);
+                for (int i = 0; i < span.Length; i++)
+                {
+                    var update = span[i];
+                    switch (update.Reason)
+                    {
+                        case ChangeReason.Add:
+                            list.Add(update.Current);
+                            break;
+
+                        case ChangeReason.Remove:
+                            list.Remove(update.Current);
+                            break;
+
+                        case ChangeReason.Update:
+                            var item = update.Previous.Value;
+
+                            if (item is not null)
+                            {
+                                list.Remove(item);
+                            }
+
+                            list.Add(update.Current);
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                foreach (var update in changes)
+                {
+                    switch (update.Reason)
+                    {
+                        case ChangeReason.Add:
+                            list.Add(update.Current);
+                            break;
+
+                        case ChangeReason.Remove:
+                            list.Remove(update.Current);
+                            break;
+
+                        case ChangeReason.Update:
+                            var item = update.Previous.Value;
+
+                            if (item is not null)
+                            {
+                                list.Remove(item);
+                            }
+
+                            list.Add(update.Current);
+                            break;
+                    }
+                }
+            }
+
+#else
+ foreach (var update in changes)
             {
                 switch (update.Reason)
                 {
@@ -131,6 +191,8 @@ namespace DynamicData.Binding
                         break;
                 }
             }
+#endif
+
         }
     }
 }

@@ -2,9 +2,8 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
-
+using System.Runtime.InteropServices;
 using DynamicData.Cache.Internal;
 using DynamicData.Kernel;
 
@@ -154,7 +153,32 @@ public class ObservableCollectionAdaptor<TObject, TKey> : IObservableCollectionA
                     break;
             }
         }
-
+#if NET6_0_OR_GREATER
+        if (changes is List<Change<TObject, TKey>> lst)
+        {
+            var span = CollectionsMarshal.AsSpan(lst);
+            for (int i = 0; i < span.Length; i++)
+            {
+                var change = span[i];
+                Amend(change);
+            }
+        }
+        else if (changes is IList<Change<TObject, TKey>> iList)
+        {
+            // allocation free enumeration
+            foreach (var change in EnumerableIList.Create(iList))
+            {
+                Amend(change);
+            }
+        }
+        else
+        {
+            foreach (var update in changes)
+            {
+                Amend(update);
+            }
+        }
+#else
         if (changes is IList<Change<TObject, TKey>> iList)
         {
             // allocation free enumeration
@@ -170,5 +194,6 @@ public class ObservableCollectionAdaptor<TObject, TKey> : IObservableCollectionA
                 Amend(update);
             }
         }
+#endif
     }
 }

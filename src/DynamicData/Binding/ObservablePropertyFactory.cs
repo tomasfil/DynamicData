@@ -2,13 +2,11 @@
 // Roland Pheasant licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Runtime.InteropServices;
 
 namespace DynamicData.Binding;
 
@@ -81,6 +79,32 @@ internal class ObservablePropertyFactory<TObject, TProperty>
     private static PropertyValue<TObject, TProperty> GetPropertyValue(TObject source, IEnumerable<ObservablePropertyPart> chain, Func<TObject, TProperty> valueAccessor)
     {
         object value = source;
+#if NET6_0_OR_GREATER
+        if (chain is List<ObservablePropertyPart> lst)
+        {
+            var span = CollectionsMarshal.AsSpan(lst);
+            for (int i = span.Length; i >= 0; i--)
+            {
+                var metadata = span[i];
+                value = metadata.Accessor(value);
+                if (value is null)
+                {
+                    return new PropertyValue<TObject, TProperty>(source);
+                }
+            }
+        }
+        else
+        {
+            foreach (var metadata in chain.Reverse())
+            {
+                value = metadata.Accessor(value);
+                if (value is null)
+                {
+                    return new PropertyValue<TObject, TProperty>(source);
+                }
+            }
+        }
+#else
         foreach (var metadata in chain.Reverse())
         {
             value = metadata.Accessor(value);
@@ -89,6 +113,7 @@ internal class ObservablePropertyFactory<TObject, TProperty>
                 return new PropertyValue<TObject, TProperty>(source);
             }
         }
+#endif
 
         return new PropertyValue<TObject, TProperty>(source, valueAccessor(source));
     }
