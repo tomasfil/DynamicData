@@ -22,7 +22,7 @@ namespace DynamicData.Benchmarks.Cache
     [SimpleJob(RuntimeMoniker.NetCoreApp31)]
     [SimpleJob(RuntimeMoniker.Net60)]
     [MemoryDiagnoser]
-   // [MarkdownExporterAttribute.GitHub]
+    //[MarkdownExporterAttribute.GitHub]
     public class SourceCache
     {
         private SourceCache<BenchmarkItem, int> _cache;
